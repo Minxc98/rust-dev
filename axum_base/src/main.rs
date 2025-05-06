@@ -2,6 +2,7 @@ mod config;
 mod constant;
 mod init;
 mod route;
+mod model;
 
 use axum::{
     Router,
