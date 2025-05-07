@@ -3,6 +3,7 @@ mod constant;
 mod init;
 mod route;
 mod model;
+mod error;
 
 use axum::{
     Router,
@@ -13,7 +14,7 @@ use axum::{
 async fn main() {
     init::initialize::init();
     // build our application with some routes
-    let app = Router::new().nest("/api", route::api::api_router().await);
+    let app = Router::new().nest("/api", route::api::api_router().await.unwrap());
 
     // run it
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
