@@ -1,5 +1,3 @@
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 pub fn init() {
     init_log();
 }

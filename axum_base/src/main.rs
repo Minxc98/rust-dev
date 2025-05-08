@@ -5,9 +5,6 @@ mod route;
 mod model;
 mod error;
 
-use axum::{
-    Router,
-};
 
 use anyhow::Result;
 

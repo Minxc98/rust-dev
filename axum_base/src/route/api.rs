@@ -1,22 +1,18 @@
-use crate::config;
 use crate::error::AppError;
 use crate::init::app_state::AppState;
-use crate::model::user;
 use crate::model::user::SignInUser;
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::response::{AppendHeaders, IntoResponse};
-use axum::routing::{get, post};
+use axum::extract::{Path, State};
+use axum::response::IntoResponse;
+use axum::routing::get;
 use axum::{Json, Router};
-use sqlx::{Error, PgPool, Pool, Postgres};
+use sqlx::PgPool;
 use tower::ServiceBuilder;
-use tower_http::compression::CompressionLayer;
 use tower_http::LatencyUnit;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
 pub async fn api_router() -> Result<Router, AppError> {
-    use config::*;
+    
     let state = AppState::new().await?;
     let router = Router::new()
         .route("/pg/{id}",get(update_user))
