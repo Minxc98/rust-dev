@@ -26,6 +26,7 @@ async fn main() -> Result<()>{
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
     info!("listening on {}", listener.local_addr()?);
+    info!("swagger-ui: http://127.0.0.1:3000/swagger-ui");
 
     axum::serve(listener, app.into_make_service()).await?;
     

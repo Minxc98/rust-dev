@@ -4,23 +4,46 @@ use sqlx::PgPool;
 use sha2::{Sha256, Digest};
 use jsonwebtoken::{encode, EncodingKey, Header, TokenData, decode, DecodingKey, Validation};
 use utoipa::ToSchema;
+use validator::{Validate, ValidationError};
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+fn validate_password_complexity(password: &str) -> Result<(), ValidationError> {
+    let has_uppercase = password.chars().any(|c| c.is_uppercase());
+    let has_lowercase = password.chars().any(|c| c.is_lowercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| "@$!%*?&".contains(c));
+    
+    if !has_uppercase || !has_lowercase || !has_digit || !has_special {
+        return Err(ValidationError::new("password must contain at least one uppercase letter, one lowercase letter, one number and one special character"));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct CreateUser {
+    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
     pub username: String,
+    #[validate(email(message = "invalid email format"))]
     pub email: String,
+    #[validate(
+        length(min = 6, max = 32, message = "password length must be between 6 and 32"),
+        custom = "validate_password_complexity"
+    )]
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct BaseUserInfo {
+    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
     pub username: String,
+    #[validate(email(message = "invalid email format"))]
     pub email: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct VerifyUserInfo {
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+pub struct LoginUser {
+    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
     pub username: String,
+    #[validate(length(min = 6, max = 32, message = "password length must be between 6 and 32"))]
     pub password: String,
 }
 
@@ -29,6 +52,16 @@ pub struct VerifyUserInfo {
 struct Claims {
     sub: String,
     exp: usize,
+}
+
+pub(crate) fn validate_token(token: &str) -> Result<Claims, AppError> {
+    let validation = Validation::default();
+    let token_data = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(b"your_secret_key"),
+        &validation,
+    )?;
+    Ok(token_data.claims)
 }
 
 impl BaseUserInfo {
@@ -48,12 +81,12 @@ impl BaseUserInfo {
     }
 }
 
-impl VerifyUserInfo {
-    pub(crate) async fn verify_user(pg_pool: PgPool, user: &VerifyUserInfo) -> Result<bool, AppError> {
+impl LoginUser {
+    pub(crate) async fn verify_user(pg_pool: &PgPool, user: &LoginUser) -> Result<String, AppError> {
         let mut hasher = Sha256::new();
         hasher.update(user.password.as_bytes());
         let password_hash = format!("{:x}", hasher.finalize());
-        let user = sqlx::query!(
+        let user_id = sqlx::query!(
             r"
             SELECT id
             FROM users
@@ -62,10 +95,21 @@ impl VerifyUserInfo {
             user.username,
             password_hash
         )
-            .fetch_optional(&pg_pool)
+            .fetch_optional(pg_pool)
             .await?
-            .is_some();
-        Ok(user)
+            .ok_or(AppError::InvalidCredentials)?
+            .id;
+        
+        let claims = Claims {
+            sub: user_id.to_string(),
+            exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
+        };
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(b"your_secret_key"),
+        )?;
+        Ok(token)
     }
 }
 
@@ -103,15 +147,7 @@ impl CreateUser {
         Ok(token)
     }
 
-    pub(crate) fn validate_token(token: &str) -> Result<Claims, AppError> {
-        let validation = Validation::default();
-        let token_data = decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(b"your_secret_key"),
-            &validation,
-        )?;
-        Ok(token_data.claims)
-    }
+ 
 }
 
 #[cfg(test)]
@@ -127,7 +163,7 @@ mod tests {
             password: "password123".to_string(),
         };
         let token = CreateUser::insert_user(&pool, &user).await.unwrap();
-        let claims = CreateUser::validate_token(&token).unwrap();
+        let claims = validate_token(&token).unwrap();
         //not null
         assert!(!claims.sub.is_empty());
         assert!(claims.exp > 0);
