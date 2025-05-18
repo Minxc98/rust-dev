@@ -17,3 +17,10 @@ serde_json = "1.0.138"
 tower = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "compression-full"] }
 anyhow = "1.0.98"
+dotenv = "0.15"
+sha2 = "0.10"
+jsonwebtoken = "9.3.1"
+chrono = "0.4"
+utoipa = { version = "5.3.1", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
+schemars = "0.8"

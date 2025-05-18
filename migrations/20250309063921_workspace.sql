@@ -15,11 +15,9 @@ create table if not exists workspaces (
     owner_id integer not null,
     created_at timestamp default current_timestamp
 );
---添加workspace for users
-ALTER TABLE users ADD COLUMN ws_id INTEGER Not NULL ;
 --insert super user
 begin;
-INSERT into users (id,ws_id, username,email, password_hash) VALUES (0,0,'admin','admin@qq.com' ,'');
+INSERT into users (id, username,email, password_hash) VALUES (0,'admin','admin@qq.com' ,'');
 insert into workspaces (id,name,owner_id) values (0,'admin',0);
 commit;
 
