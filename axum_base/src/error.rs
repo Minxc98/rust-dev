@@ -11,6 +11,8 @@ pub enum AppError {
     Redis(#[from] redis::RedisError),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("JWT error: {0}")]
+    Jwt(#[from] jsonwebtoken::errors::Error),
 }
 
 impl IntoResponse for AppError {
@@ -19,6 +21,7 @@ impl IntoResponse for AppError {
             Self::Database(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
             Self::Redis(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
             Self::Json(e) => (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+            Self::Jwt(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
         }
     }
 }

@@ -2,6 +2,8 @@ use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
 use crate::error::AppError;
+use dotenv::dotenv;
+use std::env;
 
 #[derive(Debug, Clone)]
 pub(crate) struct AppState {
@@ -31,14 +33,17 @@ impl fmt::Debug for AppStateInner {
 
 impl AppState {
     pub async fn new() -> Result<Self, AppError> {
-        let pool = sqlx::PgPool::connect("postgres://postgres:postgres@localhost/chat")
+        dotenv().ok();
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let pool = sqlx::PgPool::connect(&database_url)
             .await
             .map_err(|_| {
                 AppError::Database(sqlx::Error::Configuration(
                     "Failed to connect to database".into(),
                 ))
             })?;
-        let redis_client = redis::Client::open("redis://127.0.0.1/")?;
+        let redis_url = env::var("REDIS_URL").expect("REDIS_URL must be set");
+        let redis_client = redis::Client::open(redis_url)?;
 
         Ok(Self {
             inner: Arc::new(AppStateInner {

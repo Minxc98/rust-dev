@@ -1,32 +1,25 @@
 use crate::error::AppError;
 use crate::init::app_state::AppState;
-use crate::model::user::SignInUser;
+use crate::model::user::BaseUserInfo;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::LatencyUnit;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::Level;
-use crate::controller::user_controller::update_user;
+use crate::controller::user_controller::{create_user, find_user_by_id};
 pub async fn api_router() -> Result<Router, AppError> {
-    
     let state = AppState::new().await?;
     let router = Router::new()
-        .route("/pg/{id}",get(update_user))
+        .route("/user/{id}",get(find_user_by_id))
+        .route("/user",post(create_user))
         .with_state(state)
         ;
     Ok(set_router_layers(router))
 }
-
-#[derive(serde::Deserialize)]
-struct PathParams {
-    id: i32,
-}
-
-
 
 pub fn set_router_layers(app: Router) -> Router {
     app.layer(
