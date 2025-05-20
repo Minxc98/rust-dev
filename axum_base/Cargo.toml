@@ -24,3 +24,7 @@ chrono = "0.4"
 utoipa = { version = "5.3.1", features = ["axum_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
 schemars = "0.8"
+testcontainers = "0.15"
+
+[dev-dependencies]
+testcontainers = "0.15"

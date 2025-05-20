@@ -4,6 +4,11 @@ use sqlx::PgPool;
 use sha2::{Sha256, Digest};
 use jsonwebtoken::{encode, EncodingKey, Header, TokenData, decode, DecodingKey, Validation};
 use utoipa::ToSchema;
+use testcontainers::{clients, RunnableImage, Container, GenericImage};
+use testcontainers::core::WaitFor;
+use std::process::Command;
+use std::time::Duration;
+use tokio::time::sleep;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateUser {
@@ -117,10 +122,13 @@ impl CreateUser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::init::test_utils::TestDatabase;
 
     #[tokio::test]
     async fn test_insert_user() {
-        let pool = PgPool::connect("postgres://postgres:postgres@localhost/dev").await.unwrap();
+        let test_db = TestDatabase::new().await;
+        let pool = test_db.pool;
+
         let user = CreateUser {
             username: "test_user".to_string(),
             email: "test@example.com".to_string(),
@@ -128,7 +136,6 @@ mod tests {
         };
         let token = CreateUser::insert_user(&pool, &user).await.unwrap();
         let claims = CreateUser::validate_token(&token).unwrap();
-        //not null
         assert!(!claims.sub.is_empty());
         assert!(claims.exp > 0);
     }
