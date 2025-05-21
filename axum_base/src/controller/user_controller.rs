@@ -9,15 +9,18 @@ use sha2::{Sha256, Digest};
 use sqlx::PgPool;
 use utoipa::OpenApi;
 use utoipa::ToSchema;
+use crate::model::user::{BaseUserInfo, CreateUser, LoginUser};
+use validator::Validate;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
         find_user_by_id,
-        create_user
+        create_user,
+        login_user
     ),
     components(
-        schemas(crate::model::user::CreateUser, crate::model::user::BaseUserInfo)
+        schemas(crate::model::user::CreateUser, crate::model::user::BaseUserInfo, crate::model::user::LoginUser)
     ),
     tags(
         (name = "users", description = "User management endpoints.")
@@ -58,18 +61,27 @@ pub(crate) async fn create_user(
     State(context): State<AppState>,
     Json(user): Json<crate::model::user::CreateUser>,
 ) -> Result<impl IntoResponse, AppError> {
+    user.validate()?;
     let pg_pool = &context.pool;
     let token = crate::model::user::CreateUser::insert_user(pg_pool, &user).await?;
     Ok(Json(token))
 }
 
+#[utoipa::path(
+    post,
+    path = "/user/login",
+    request_body = crate::model::user::LoginUser,
+    responses(
+        (status = 200, description = "Login successful", body = String),
+        (status = 401, description = "Invalid credentials")
+    )
+)]
+pub(crate) async fn login_user(
+    State(context): State<AppState>,
+    Json(user): Json<crate::model::user::LoginUser>,
+) -> Result<impl IntoResponse, AppError> {
+    let pg_pool = &context.pool;
+    let token = crate::model::user::LoginUser::verify_user(pg_pool, &user).await?;
+    Ok(Json(token))
+}
 
-// pub(crate) async fn validate_user(
-//     State(context): State<AppState>,
-//     Json(user): Json<crate::model::user::VerifyUserInfo>,
-// ) -> Result<impl IntoResponse, AppError> {
-//     let pg_pool = &context.pool;
-//     let token = crate::model::user::CreateUser::insert_user(pg_pool, &user).await?;
-//     Ok(Json(token))
-// }
-// 
