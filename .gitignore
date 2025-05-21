@@ -1,2 +1,6 @@
-/target/
-/.qodo/
+/target
+/axum_base/target/
+/axum_base/target/debug/incremental/axum_base-1198v8wiy1luc/s-h4rnkubp45-10dzozd-603gcl3yl7xe7do62zw3165qm/
+
+.idea/
+.vscode/

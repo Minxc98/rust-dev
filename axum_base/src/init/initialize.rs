@@ -9,6 +9,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use std::rc::Rc;
 use std::sync::Once;
+use std::sync::OnceLock;
 
 pub fn init() {
     init_log();
@@ -19,13 +20,14 @@ pub fn init_log() {
     tracing_subscriber::registry().with(layer).init();
 }
 
+static CLI: OnceLock<clients::Cli> = OnceLock::new();
+
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
     use std::process::Command;
 
     static INIT: Once = Once::new();
-    static mut CLI: Option<clients::Cli> = None;
 
     pub struct TestDatabase {
         pub container: Container<'static, GenericImage>,
@@ -34,12 +36,7 @@ pub mod test_utils {
 
     impl TestDatabase {
         pub async fn new() -> Self {
-            let cli = unsafe {
-                INIT.call_once(|| {
-                    CLI = Some(clients::Cli::default());
-                });
-                CLI.as_ref().unwrap()
-            };
+            let cli = CLI.get_or_init(|| clients::Cli::default());
             let image = RunnableImage::from(
                 GenericImage::new("postgres", "latest")
                     .with_env_var("POSTGRES_USER", "postgres")

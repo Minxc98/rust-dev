@@ -166,8 +166,11 @@ mod tests {
             password: "password123".to_string(),
         };
         let token = CreateUser::insert_user(&pool, &user).await.unwrap();
-        let claims = CreateUser::validate_token(&token).unwrap();
-        let claims = validate_token(&token).unwrap();
+        let claims: Claims = decode(
+            &token,
+            &DecodingKey::from_secret(b"your_secret_key"),
+            &Validation::default()
+        ).unwrap().claims;
         //not null
         assert!(!claims.sub.is_empty());
         assert!(claims.exp > 0);
