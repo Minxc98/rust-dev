@@ -13,6 +13,7 @@ pub(crate) struct AppState {
 pub(crate) struct AppStateInner {
     pub(crate) pool: sqlx::PgPool,
     pub(crate) redis_client: redis::Client,
+    pub(crate) pem:String,
 }
 
 
@@ -35,6 +36,7 @@ impl AppState {
     pub async fn new() -> Result<Self, AppError> {
         dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let pem = env::var("PEM").expect("PEM must be set");
         let pool = sqlx::PgPool::connect(&database_url)
             .await
             .map_err(|_| {
@@ -48,7 +50,8 @@ impl AppState {
         Ok(Self {
             inner: Arc::new(AppStateInner {
                 pool,
-                redis_client
+                redis_client,
+                pem,
             }),
         })
     }

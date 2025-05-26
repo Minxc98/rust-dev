@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sha2::{Sha256, Digest};
 use jsonwebtoken::{encode, EncodingKey, Header, TokenData, decode, DecodingKey, Validation};
+use sqlx_paginated::{paginated_query_as, PaginatedResponse, QueryParamsBuilder, QuerySortDirection};
 use utoipa::ToSchema;
 use validator::{Validate, ValidationError};
 
@@ -31,7 +32,7 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate,sqlx::FromRow,Default)]
 pub struct BaseUserInfo {
     #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
     pub username: String,
@@ -79,10 +80,24 @@ impl BaseUserInfo {
         .await?;
         Ok(user)
     }
+
+    pub(crate) async fn page_user(pool: &PgPool, page: i32, page_size: i32) -> Result<PaginatedResponse<BaseUserInfo>, AppError> {
+        let params = QueryParamsBuilder::<BaseUserInfo>::new()
+        .with_pagination(page as i64, page_size as i64)
+        .build();
+    let paginated_response = paginated_query_as!(BaseUserInfo, "SELECT * FROM users")
+        // Alternative function call example (if macros don't fit your use case):
+        // paginated_query_as::<User>("SELECT * FROM users")
+        .with_params(params)
+        .fetch_paginated(pool)
+        .await?;
+
+    Ok(paginated_response)
+    }
 }
 
 impl LoginUser {
-    pub(crate) async fn verify_user(pg_pool: &PgPool, user: &LoginUser) -> Result<String, AppError> {
+    pub(crate) async fn verify_user(pg_pool: &PgPool, pem: &str, user: &LoginUser) -> Result<String, AppError> {
         let mut hasher = Sha256::new();
         hasher.update(user.password.as_bytes());
         let password_hash = format!("{:x}", hasher.finalize());
@@ -107,14 +122,14 @@ impl LoginUser {
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(b"your_secret_key"),
+            &EncodingKey::from_secret(pem.as_bytes()),
         )?;
         Ok(token)
     }
 }
 
 impl CreateUser {
-    pub(crate) async fn insert_user(pool: &PgPool, user: &CreateUser) -> Result<String, AppError> {
+    pub(crate) async fn insert_user(pool: &PgPool,pem: &str, user: &CreateUser) -> Result<String, AppError> {
         let mut hasher = Sha256::new();
         hasher.update(user.password.as_bytes());
         let password_hash = format!("{:x}", hasher.finalize());
@@ -141,7 +156,7 @@ impl CreateUser {
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(b"your_secret_key"),
+            &EncodingKey::from_secret(pem.as_bytes()),
         )?;
     
         Ok(token)
@@ -163,12 +178,13 @@ mod tests {
         let user = CreateUser {
             username: "test_user".to_string(),
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "password123@".to_string(),
         };
-        let token = CreateUser::insert_user(&pool, &user).await.unwrap();
+        let pem = "your_secret_key";
+        let token = CreateUser::insert_user(&pool, &pem, &user).await.unwrap();
         let claims: Claims = decode(
             &token,
-            &DecodingKey::from_secret(b"your_secret_key"),
+            &DecodingKey::from_secret(pem.as_bytes()),
             &Validation::default()
         ).unwrap().claims;
         //not null

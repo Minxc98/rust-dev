@@ -10,7 +10,7 @@ use tower::ServiceBuilder;
 use tower_http::LatencyUnit;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer};
 use tracing::Level;
-use crate::controller::user_controller::{create_user, find_user_by_id, login_user};
+use crate::controller::user_controller::{create_user, find_user_by_id, login_user, page_user, verify_user};
 
 pub async fn api_router() -> Result<Router, AppError> {
     let state = AppState::new().await?;
@@ -18,6 +18,8 @@ pub async fn api_router() -> Result<Router, AppError> {
         .route("/user/{id}", get(find_user_by_id))
         .route("/user", post(create_user))
         .route("/user/login", post(login_user))
+        .route("/user/verify", post(verify_user))
+        .route("/user/page", get(page_user))
         .with_state(state);
     Ok(set_router_layers(router))
 }

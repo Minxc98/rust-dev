@@ -11,6 +11,8 @@ use utoipa::OpenApi;
 use utoipa::ToSchema;
 use crate::model::user::{BaseUserInfo, CreateUser, LoginUser};
 use validator::Validate;
+use serde::Deserialize;
+use axum::extract::Query;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -59,11 +61,12 @@ pub(crate) async fn find_user_by_id(
 )]
 pub(crate) async fn create_user(
     State(context): State<AppState>,
-    Json(user): Json<crate::model::user::CreateUser>,
+    Json(user): Json<CreateUser>,
 ) -> Result<impl IntoResponse, AppError> {
     user.validate()?;
     let pg_pool = &context.pool;
-    let token = crate::model::user::CreateUser::insert_user(pg_pool, &user).await?;
+    let pem = &context.pem;
+    let token = CreateUser::insert_user(pg_pool,pem, &user).await?;
     Ok(Json(token))
 }
 
@@ -81,7 +84,51 @@ pub(crate) async fn login_user(
     Json(user): Json<crate::model::user::LoginUser>,
 ) -> Result<impl IntoResponse, AppError> {
     let pg_pool = &context.pool;
-    let token = crate::model::user::LoginUser::verify_user(pg_pool, &user).await?;
+    let pem = &context.pem;
+    let token = crate::model::user::LoginUser::verify_user(pg_pool, pem, &user).await?;
     Ok(Json(token))
 }
+
+#[utoipa::path(
+    post,
+    path = "/user/verify",
+    request_body = crate::model::user::LoginUser,
+    responses(
+        (status = 200, description = "Verify successful", body = String),
+        (status = 401, description = "Invalid credentials")
+    )
+)]
+pub(crate) async fn verify_user(
+    State(context): State<AppState>,
+    Json(user): Json<crate::model::user::LoginUser>,
+) -> Result<impl IntoResponse, AppError> {
+    let pg_pool = &context.pool;
+    let pem = &context.pem;
+    let token = crate::model::user::LoginUser::verify_user(pg_pool, pem, &user).await?;
+    Ok(Json(token))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PageUserQuery {
+    page: i32,
+    page_size: i32,
+}
+
+#[utoipa::path(
+    get,
+    path = "/user/page",
+    responses(
+        (status = 200, description = "Page found", body = crate::model::user::BaseUserInfo)
+    )
+)]
+pub(crate) async fn page_user(
+    State(context): State<AppState>,
+    Path(params): Path<i32>,
+    Query(query): Query<PageUserQuery>,
+) -> Result<impl IntoResponse, AppError> {
+    let pg_pool = &context.pool;
+    let result = crate::model::user::BaseUserInfo::page_user(pg_pool, query.page, query.page_size).await?;
+    Ok(Json(result))
+}
+
 
