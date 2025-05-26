@@ -191,4 +191,61 @@ mod tests {
         assert!(!claims.sub.is_empty());
         assert!(claims.exp > 0);
     }
+
+    #[tokio::test]
+    async fn test_page_user() {
+        let test_db = TestDatabase::new().await;
+        let pool = test_db.pool;
+
+        // 清理数据库
+        sqlx::query!("DELETE FROM users WHERE id > 0").execute(&pool).await.unwrap();
+
+        // 插入测试数据
+        let users = vec![
+            CreateUser {
+                username: "user1".to_string(),
+                email: "user1@example.com".to_string(),
+                password: "Password123@".to_string(),
+            },
+            CreateUser {
+                username: "user2".to_string(),
+                email: "user2@example.com".to_string(),
+                password: "Password123@".to_string(),
+            },
+            CreateUser {
+                username: "user3".to_string(),
+                email: "user3@example.com".to_string(),
+                password: "Password123@".to_string(),
+            },
+        ];
+
+        let pem = "your_secret_key";
+        for user in users {
+            CreateUser::insert_user(&pool, &pem, &user).await.unwrap();
+        }
+
+        // 测试第一页，每页2条数据
+        let page1 = BaseUserInfo::page_user(&pool, 1, 2).await.unwrap();
+        assert_eq!(page1.records.len(), 2);
+        assert_eq!(page1.total, Some(3));
+        let pagination1 = page1.pagination.unwrap();
+        assert_eq!(pagination1.page, 1);
+        assert_eq!(pagination1.page_size, 2);
+
+        // 测试第二页，每页2条数据
+        let page2 = BaseUserInfo::page_user(&pool, 2, 2).await.unwrap();
+        assert_eq!(page2.records.len(), 1);
+        assert_eq!(page2.total, Some(3));
+        let pagination2 = page2.pagination.unwrap();
+        assert_eq!(pagination2.page, 2);
+        assert_eq!(pagination2.page_size, 2);
+
+        // 测试超出范围的页码
+        let page3 = BaseUserInfo::page_user(&pool, 3, 2).await.unwrap();
+        assert_eq!(page3.records.len(), 0);
+        assert_eq!(page3.total, Some(3));
+        let pagination3 = page3.pagination.unwrap();
+        assert_eq!(pagination3.page, 3);
+        assert_eq!(pagination3.page_size, 2);
+    }
 }
