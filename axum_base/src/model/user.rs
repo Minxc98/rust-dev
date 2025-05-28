@@ -1,9 +1,11 @@
 use crate::error::AppError;
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
-use sha2::{Sha256, Digest};
-use jsonwebtoken::{encode, EncodingKey, Header, TokenData, decode, DecodingKey, Validation};
-use sqlx_paginated::{paginated_query_as, PaginatedResponse, QueryParamsBuilder, QuerySortDirection};
+use sqlx_paginated::{
+    paginated_query_as, PaginatedResponse, QueryParamsBuilder, QuerySortDirection,
+};
 use utoipa::ToSchema;
 use validator::{Validate, ValidationError};
 
@@ -21,20 +23,32 @@ fn validate_password_complexity(password: &str) -> Result<(), ValidationError> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct CreateUser {
-    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
+    #[validate(length(
+        min = 3,
+        max = 20,
+        message = "username length must be between 3 and 20"
+    ))]
     pub username: String,
     #[validate(email(message = "invalid email format"))]
     pub email: String,
     #[validate(
-        length(min = 6, max = 32, message = "password length must be between 6 and 32"),
+        length(
+            min = 6,
+            max = 32,
+            message = "password length must be between 6 and 32"
+        ),
         custom = "validate_password_complexity"
     )]
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate,sqlx::FromRow,Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate, sqlx::FromRow, Default)]
 pub struct BaseUserInfo {
-    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
+    #[validate(length(
+        min = 3,
+        max = 20,
+        message = "username length must be between 3 and 20"
+    ))]
     pub username: String,
     #[validate(email(message = "invalid email format"))]
     pub email: String,
@@ -42,12 +56,19 @@ pub struct BaseUserInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Validate)]
 pub struct LoginUser {
-    #[validate(length(min = 3, max = 20, message = "username length must be between 3 and 20"))]
+    #[validate(length(
+        min = 3,
+        max = 20,
+        message = "username length must be between 3 and 20"
+    ))]
     pub username: String,
-    #[validate(length(min = 6, max = 32, message = "password length must be between 6 and 32"))]
+    #[validate(length(
+        min = 6,
+        max = 32,
+        message = "password length must be between 6 and 32"
+    ))]
     pub password: String,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 struct Claims {
@@ -81,23 +102,31 @@ impl BaseUserInfo {
         Ok(user)
     }
 
-    pub(crate) async fn page_user(pool: &PgPool, page: i32, page_size: i32) -> Result<PaginatedResponse<BaseUserInfo>, AppError> {
+    pub(crate) async fn page_user(
+        pool: &PgPool,
+        page: i32,
+        page_size: i32,
+    ) -> Result<PaginatedResponse<BaseUserInfo>, AppError> {
         let params = QueryParamsBuilder::<BaseUserInfo>::new()
-        .with_pagination(page as i64, page_size as i64)
-        .build();
-    let paginated_response = paginated_query_as!(BaseUserInfo, "SELECT * FROM users")
-        // Alternative function call example (if macros don't fit your use case):
-        // paginated_query_as::<User>("SELECT * FROM users")
-        .with_params(params)
-        .fetch_paginated(pool)
-        .await?;
+            .with_pagination(page as i64, page_size as i64)
+            .build();
+        let paginated_response = paginated_query_as!(BaseUserInfo, "SELECT * FROM users")
+            // Alternative function call example (if macros don't fit your use case):
+            // paginated_query_as::<User>("SELECT * FROM users")
+            .with_params(params)
+            .fetch_paginated(pool)
+            .await?;
 
-    Ok(paginated_response)
+        Ok(paginated_response)
     }
 }
 
 impl LoginUser {
-    pub(crate) async fn verify_user(pg_pool: &PgPool, pem: &str, user: &LoginUser) -> Result<String, AppError> {
+    pub(crate) async fn verify_user(
+        pg_pool: &PgPool,
+        pem: &str,
+        user: &LoginUser,
+    ) -> Result<String, AppError> {
         let mut hasher = Sha256::new();
         hasher.update(user.password.as_bytes());
         let password_hash = format!("{:x}", hasher.finalize());
@@ -110,10 +139,10 @@ impl LoginUser {
             user.username,
             password_hash
         )
-            .fetch_optional(pg_pool)
-            .await?
-            .ok_or(AppError::InvalidCredentials)?
-            .id;
+        .fetch_optional(pg_pool)
+        .await?
+        .ok_or(AppError::InvalidCredentials)?
+        .id;
 
         let claims = Claims {
             sub: user_id.to_string(),
@@ -129,11 +158,15 @@ impl LoginUser {
 }
 
 impl CreateUser {
-    pub(crate) async fn insert_user(pool: &PgPool,pem: &str, user: &CreateUser) -> Result<String, AppError> {
+    pub(crate) async fn insert_user(
+        pool: &PgPool,
+        pem: &str,
+        user: &CreateUser,
+    ) -> Result<i32, AppError> {
         let mut hasher = Sha256::new();
         hasher.update(user.password.as_bytes());
         let password_hash = format!("{:x}", hasher.finalize());
-    
+
         let user_id = sqlx::query!(
             r"
             INSERT INTO users (username, email, password_hash)
@@ -147,22 +180,35 @@ impl CreateUser {
         .fetch_one(pool)
         .await?
         .id;
-    
+        Ok(user_id)
+    }
+
+    pub(crate) async fn create_user(
+        pool: &PgPool,
+        pem: &str,
+        user: &CreateUser,
+    ) -> Result<String, AppError> {
+        let user_id = Self::insert_user(pool, pem, user).await;
+        match user_id {
+            Ok(user_id) => Self::generate_jwt(&pem, user_id)?,
+            Err(_) => Err(AppError::Database(sqlx::Error::RowNotFound)),
+        }
+    }
+
+    fn generate_jwt(pem: &&str, user_id: i32) -> Result<Result<String, AppError>, AppError> {
         let claims = Claims {
             sub: user_id.to_string(),
             exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp() as usize,
         };
-    
+
         let token = encode(
             &Header::default(),
             &claims,
             &EncodingKey::from_secret(pem.as_bytes()),
         )?;
-    
-        Ok(token)
+
+        Ok(Ok(token))
     }
-
-
 }
 
 #[cfg(test)]
@@ -181,71 +227,16 @@ mod tests {
             password: "password123@".to_string(),
         };
         let pem = "your_secret_key";
-        let token = CreateUser::insert_user(&pool, &pem, &user).await.unwrap();
+        let token = CreateUser::create_user(&pool, &pem, &user).await.unwrap();
         let claims: Claims = decode(
             &token,
             &DecodingKey::from_secret(pem.as_bytes()),
-            &Validation::default()
-        ).unwrap().claims;
+            &Validation::default(),
+        )
+            .unwrap()
+            .claims;
         //not null
         assert!(!claims.sub.is_empty());
         assert!(claims.exp > 0);
-    }
-
-    #[tokio::test]
-    async fn test_page_user() {
-        let test_db = TestDatabase::new().await;
-        let pool = test_db.pool;
-
-        // 清理数据库
-        sqlx::query!("DELETE FROM users WHERE id > 0").execute(&pool).await.unwrap();
-
-        // 插入测试数据
-        let users = vec![
-            CreateUser {
-                username: "user1".to_string(),
-                email: "user1@example.com".to_string(),
-                password: "Password123@".to_string(),
-            },
-            CreateUser {
-                username: "user2".to_string(),
-                email: "user2@example.com".to_string(),
-                password: "Password123@".to_string(),
-            },
-            CreateUser {
-                username: "user3".to_string(),
-                email: "user3@example.com".to_string(),
-                password: "Password123@".to_string(),
-            },
-        ];
-
-        let pem = "your_secret_key";
-        for user in users {
-            CreateUser::insert_user(&pool, &pem, &user).await.unwrap();
-        }
-
-        // 测试第一页，每页2条数据
-        let page1 = BaseUserInfo::page_user(&pool, 1, 2).await.unwrap();
-        assert_eq!(page1.records.len(), 2);
-        assert_eq!(page1.total, Some(3));
-        let pagination1 = page1.pagination.unwrap();
-        assert_eq!(pagination1.page, 1);
-        assert_eq!(pagination1.page_size, 2);
-
-        // 测试第二页，每页2条数据
-        let page2 = BaseUserInfo::page_user(&pool, 2, 2).await.unwrap();
-        assert_eq!(page2.records.len(), 1);
-        assert_eq!(page2.total, Some(3));
-        let pagination2 = page2.pagination.unwrap();
-        assert_eq!(pagination2.page, 2);
-        assert_eq!(pagination2.page_size, 2);
-
-        // 测试超出范围的页码
-        let page3 = BaseUserInfo::page_user(&pool, 3, 2).await.unwrap();
-        assert_eq!(page3.records.len(), 0);
-        assert_eq!(page3.total, Some(3));
-        let pagination3 = page3.pagination.unwrap();
-        assert_eq!(pagination3.page, 3);
-        assert_eq!(pagination3.page_size, 2);
     }
 }

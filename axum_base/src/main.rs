@@ -5,6 +5,7 @@ mod route;
 mod model;
 mod error;
 mod controller;
+mod kafka;
 
 use anyhow::Result;
 

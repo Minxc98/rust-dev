@@ -11,18 +11,28 @@ use utoipa::OpenApi;
 use utoipa::ToSchema;
 use crate::model::user::{BaseUserInfo, CreateUser, LoginUser};
 use validator::Validate;
-use serde::Deserialize;
-use axum::extract::Query;
+use serde::{Deserialize, Serialize};
+use axum::extract::{Query, WebSocketUpgrade};
+use axum::extract::ws::WebSocket;
+use axum::response::Response;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
         find_user_by_id,
         create_user,
-        login_user
+        login_user,
+        verify_user,
+        page_user
     ),
     components(
-        schemas(crate::model::user::CreateUser, crate::model::user::BaseUserInfo, crate::model::user::LoginUser)
+        schemas(
+            crate::model::user::CreateUser, 
+            crate::model::user::BaseUserInfo, 
+            crate::model::user::LoginUser,
+            crate::model::user::LoginUser,
+            crate::controller::user_controller::PageUserQuery
+        )
     ),
     tags(
         (name = "users", description = "User management endpoints.")
@@ -66,7 +76,7 @@ pub(crate) async fn create_user(
     user.validate()?;
     let pg_pool = &context.pool;
     let pem = &context.pem;
-    let token = CreateUser::insert_user(pg_pool,pem, &user).await?;
+    let token = CreateUser::create_user(pg_pool,pem, &user).await?;
     Ok(Json(token))
 }
 
@@ -108,7 +118,7 @@ pub(crate) async fn verify_user(
     Ok(Json(token))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PageUserQuery {
     page: i32,
     page_size: i32,
@@ -123,12 +133,31 @@ pub struct PageUserQuery {
 )]
 pub(crate) async fn page_user(
     State(context): State<AppState>,
-    Path(params): Path<i32>,
-    Query(query): Query<PageUserQuery>,
+    Json(query): Json<PageUserQuery>,
 ) -> Result<impl IntoResponse, AppError> {
     let pg_pool = &context.pool;
     let result = BaseUserInfo::page_user(pg_pool, query.page, query.page_size).await?;
     Ok(Json(result))
 }
 
+
+pub(crate) async fn handler(ws: WebSocketUpgrade) -> Response {
+    ws.on_upgrade(handle_socket)
+}
+
+async fn handle_socket(mut socket: WebSocket) {
+    while let Some(msg) = socket.recv().await {
+        let msg = if let Ok(msg) = msg {
+            msg
+        } else {
+            // client disconnected
+            return;
+        };
+
+        if socket.send(msg).await.is_err() {
+            // client disconnected
+            return;
+        }
+    }
+}
 

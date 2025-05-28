@@ -16,7 +16,7 @@ pub fn init() {
 }
 
 pub fn init_log() {
-    let layer = Layer::new().with_filter(Level::INFO);
+    let layer = Layer::new().with_filter(Level::DEBUG);
     tracing_subscriber::registry().with(layer).init();
 }
 
