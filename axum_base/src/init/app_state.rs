@@ -14,6 +14,7 @@ pub(crate) struct AppStateInner {
     pub(crate) pool: sqlx::PgPool,
     pub(crate) redis_client: redis::Client,
     pub(crate) pem:String,
+    pub(crate) kafka_url: String,
 }
 
 
@@ -36,6 +37,7 @@ impl AppState {
     pub async fn new() -> Result<Self, AppError> {
         dotenv().ok();
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let kafka_url = env::var("KAFKA_URL").expect("KAFKA_URL must be set");
         let pem = env::var("PEM").expect("PEM must be set");
         let pool = sqlx::PgPool::connect(&database_url)
             .await
@@ -52,6 +54,7 @@ impl AppState {
                 pool,
                 redis_client,
                 pem,
+                kafka_url
             }),
         })
     }

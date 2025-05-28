@@ -6,6 +6,8 @@ mod model;
 mod error;
 mod controller;
 mod kafka;
+mod grpc;
+mod protos;
 
 use anyhow::Result;
 
@@ -16,7 +18,7 @@ use crate::init::app_state::AppState;
 use crate::controller::user_controller::ApiDoc;
 
 #[tokio::main]
-async fn main() -> Result<()>{
+async fn main() -> Result<()> {
     init::initialize::init();
 
     let api_doc = ApiDoc::openapi();

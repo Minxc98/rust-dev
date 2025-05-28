@@ -1,117 +1,103 @@
-use rdkafka::{
-    producer::{FutureProducer, FutureRecord},
-    ClientConfig,
-    message::{OwnedHeaders, Header},
-    util::Timeout,
-};
 use std::time::Duration;
-use tracing::info;
+use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
+use kafka::producer::{Producer, Record, RequiredAcks};
+use kafka::error::Error as KafkaError;
+fn produce_message<'a, 'b>(
+    data: &'a [u8],
+    topic: &'b str,
+    brokers: Vec<String>,
+) -> Result<(), KafkaError> {
+    println!("About to publish a message at {:?} to: {}", brokers, topic);
 
-pub struct KafkaProducer {
-    producer: FutureProducer,
-    topic: String,
+    // ~ create a producer. this is a relatively costly operation, so
+    // you'll do this typically once in your application and re-use
+    // the instance many times.
+    let mut producer = Producer::from_hosts(brokers)
+        // ~ give the brokers one second time to ack the message
+        .with_ack_timeout(Duration::from_secs(1))
+        // ~ require only one broker to ack the message
+        .with_required_acks(RequiredAcks::One)
+        // ~ build the producer with the above settings
+        .create()?;
+
+    // ~ now send a single message.  this is a synchronous/blocking
+    // operation.
+
+    // ~ we're sending 'data' as a 'value'. there will be no key
+    // associated with the sent message.
+
+    // ~ we leave the partition "unspecified" - this is a negative
+    // partition - which causes the producer to find out one on its
+    // own using its underlying partitioner.
+    producer.send(&Record {
+        topic,
+        partition: -1,
+        key: (),
+        value: data,
+    })?;
+
+    // ~ we can achieve exactly the same as above in a shorter way with
+    // the following call
+    producer.send(&Record::from_value(topic, data))?;
+
+    Ok(())
 }
 
-impl KafkaProducer {
-    pub fn new(brokers: &str, topic: &str) -> Self {
-        let producer = ClientConfig::new()
-            .set("bootstrap.servers", brokers)
-            .set("message.timeout.ms", "5000")
-            .create()
-            .expect("Producer creation error");
 
-        Self {
-            producer,
-            topic: topic.to_string(),
+fn consume_messages(group: String, topic: String, brokers: Vec<String>) -> Result<(), KafkaError> {
+    let mut con = Consumer::from_hosts(brokers)
+        .with_topic(topic)
+        .with_group(group)
+        .with_fallback_offset(FetchOffset::Earliest)
+        .with_offset_storage(Some(GroupOffsetStorage::Kafka))
+        .create()?;
+
+    loop {
+        let mss = con.poll()?;
+        if mss.is_empty() {
+            println!("No messages available right now.");
+            return Ok(());
         }
-    }
 
-    /// 发送单条消息
-    pub async fn send_message(
-        &self,
-        key: &str,
-        payload: &str,
-        headers: Option<OwnedHeaders>,
-    ) -> Result<(), String> {
-        let record = FutureRecord::to(&self.topic)
-            .payload(payload)
-            .key(key);
-
-        let record = if let Some(headers) = headers {
-            record.headers(headers)
-        } else {
-            record
-        };
-
-        self.producer
-            .send(record, Timeout::After(Duration::from_secs(0)))
-            .await
-            .map(|_| ())
-            .map_err(|(err, _)| format!("Failed to send message: {}", err))
-    }
-
-    /// 批量发送消息
-    pub async fn send_messages<'a, I>(&self, messages: I) -> Vec<Result<(), String>>
-    where
-        I: IntoIterator<Item = (&'a str, &'a str)>,
-    {
-        let futures = messages
-            .into_iter()
-            .map(|(key, payload)| async move {
-                let delivery_status = self
-                    .send_message(
-                        key,
-                        payload,
-                        Some(OwnedHeaders::new().insert(Header {
-                            key: "header_key",
-                            value: Some("header_value"),
-                        })),
-                    )
-                    .await;
-
-                info!("Delivery status for message with key {} received", key);
-                delivery_status
-            })
-            .collect::<Vec<_>>();
-
-        let mut results = Vec::new();
-        for future in futures {
-            let result = future.await;
-            info!("Future completed. Result: {:?}", result);
-            results.push(result);
+        for ms in mss.iter() {
+            for m in ms.messages() {
+                println!(
+                    "{}:{}@{}: {:?}",
+                    ms.topic(),
+                    ms.partition(),
+                    m.offset,
+                    m.value
+                );
+            }
+            let _ = con.consume_messageset(ms);
         }
-        results
+        con.commit_consumed()?;
     }
 }
+
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_kafka_producer() {
-        let producer = KafkaProducer::new("localhost:9092", "test-topic");
-        
-        // 测试发送单条消息
-        let result = producer
-            .send_message(
-                "test-key",
-                "test-message",
-                Some(OwnedHeaders::new().insert(Header {
-                    key: "test-header",
-                    value: Some("test-value"),
-                })),
-            )
-            .await;
-        assert!(result.is_ok());
+    #[test]
+    fn test_produce_message() {
+        let brokers = vec!["localhost:9092".to_string()];
+        let topic = "test-topic";
+        let data = b"test message";
 
-        // 测试批量发送消息
-        let messages = vec![
-            ("key1", "message1"),
-            ("key2", "message2"),
-            ("key3", "message3"),
-        ];
-        let results = producer.send_messages(messages).await;
-        assert!(results.iter().all(|r| r.is_ok()));
+        let result = produce_message(data, topic, brokers);
+        assert!(result.is_ok(), "Failed to produce message: {:?}", result.err());
+    }
+    
+    #[test]
+    fn test_consume_messages() {
+        let brokers = vec!["localhost:9092".to_string()];
+        let topic = "test-topic".to_string();
+        let group = "test-group".to_string();
+
+        let result = consume_messages(group, topic, brokers);
+        assert!(result.is_ok(), "Failed to consume messages: {:?}", result.err());
     }
 }
