@@ -20,7 +20,6 @@ pub mod test_utils {
     use super::*;
     use std::process::Command;
     use std::sync::Once;
-    use std::thread::sleep;
     use std::time::Duration;
     use sqlx::PgPool;
     use testcontainers::core::WaitFor;
@@ -48,7 +47,7 @@ pub mod test_utils {
             let port = container.get_host_port_ipv4(5432);
 
             // 等待数据库完全启动
-            sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(2)).await;
 
             // 运行 SQL 命令创建数据库和表
             let db_url = format!("postgres://postgres:postgres@localhost:{}/dev", port);

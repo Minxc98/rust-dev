@@ -42,7 +42,7 @@ pub struct ApiDoc;
     get,
     path = "/user/{id}",
     responses(
-        (status = 200, description = "User found", body = crate::model::user::BaseUserInfo),
+        (status = 200, description = "User found", body = BaseUserInfo),
         (status = 404, description = "User not found")
     ),
     params(
