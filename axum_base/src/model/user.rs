@@ -1,10 +1,10 @@
 use crate::error::AppError;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, TokenData, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header,  Validation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use sqlx_paginated::{
-    paginated_query_as, PaginatedResponse, QueryParamsBuilder, QuerySortDirection,
+    paginated_query_as, PaginatedResponse, QueryParamsBuilder,
 };
 use utoipa::ToSchema;
 use validator::{Validate, ValidationError};
@@ -71,7 +71,7 @@ pub struct LoginUser {
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-struct Claims {
+pub(crate) struct Claims {
     sub: String,
     exp: usize,
 }

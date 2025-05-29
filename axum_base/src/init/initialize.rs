@@ -1,4 +1,4 @@
-use tracing::{info, level_filters::LevelFilter as Level};
+use tracing::{level_filters::LevelFilter as Level};
 use tracing_subscriber::fmt::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer as _};
 use testcontainers::{clients, RunnableImage, Container, GenericImage};
@@ -6,8 +6,6 @@ use testcontainers::core::WaitFor;
 use std::time::Duration;
 use tokio::time::sleep;
 use sqlx::PgPool;
-use std::sync::Arc;
-use std::rc::Rc;
 use std::sync::Once;
 use std::sync::OnceLock;
 
@@ -27,10 +25,10 @@ pub mod test_utils {
     use super::*;
     use std::process::Command;
 
-    static INIT: Once = Once::new();
+    static _INIT: Once = Once::new();
 
     pub struct TestDatabase {
-        pub container: Container<'static, GenericImage>,
+        pub _container: Container<'static, GenericImage>,
         pub pool: PgPool,
     }
 
@@ -85,7 +83,7 @@ pub mod test_utils {
             let pool = PgPool::connect(&db_url).await.unwrap();
 
             Self {
-                container,
+                _container: container,
                 pool,
             }
         }

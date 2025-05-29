@@ -20,6 +20,8 @@ A web service template built with Axum framework, featuring user authentication,
 
 ## Getting Started
 
+需要安装protoc编译
+
 1. Clone the repository
 2. Start the database services:
     1. Start Docker services:

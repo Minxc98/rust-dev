@@ -5,14 +5,12 @@ use axum::{
 };
 use crate::error::AppError;
 use crate::init::app_state::AppState;
-use sha2::{Sha256, Digest};
-use sqlx::PgPool;
 use utoipa::OpenApi;
 use utoipa::ToSchema;
 use crate::model::user::{BaseUserInfo, CreateUser, LoginUser};
 use validator::Validate;
 use serde::{Deserialize, Serialize};
-use axum::extract::{Query, WebSocketUpgrade};
+use axum::extract::{ WebSocketUpgrade};
 use axum::extract::ws::WebSocket;
 use axum::response::Response;
 
