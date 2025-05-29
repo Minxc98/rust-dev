@@ -4,9 +4,9 @@ use kafka::producer::{Producer, Record, RequiredAcks};
 use kafka::error::Error as KafkaError;
 
 
-fn _produce_message<'a, 'b>(
-    data: &'a [u8],
-    topic: &'b str,
+fn _produce_message(
+    data: &[u8],
+    topic: &str,
     brokers: Vec<String>,
 ) -> Result<(), KafkaError> {
     println!("About to publish a message at {:?} to: {}", brokers, topic);
@@ -89,7 +89,7 @@ mod tests {
         let topic = "test-topic";
         let data = b"test message";
 
-        let result = produce_message(data, topic, brokers);
+        let result = _produce_message(data, topic, brokers);
         assert!(result.is_ok(), "Failed to produce message: {:?}", result.err());
     }
     
@@ -99,7 +99,7 @@ mod tests {
         let topic = "test-topic".to_string();
         let group = "test-group".to_string();
 
-        let result = consume_messages(group, topic, brokers);
+        let result = _consume_messages(group, topic, brokers);
         assert!(result.is_ok(), "Failed to consume messages: {:?}", result.err());
     }
 }
