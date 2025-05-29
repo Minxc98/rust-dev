@@ -2,7 +2,9 @@ use std::time::Duration;
 use kafka::consumer::{Consumer, FetchOffset, GroupOffsetStorage};
 use kafka::producer::{Producer, Record, RequiredAcks};
 use kafka::error::Error as KafkaError;
-fn produce_message<'a, 'b>(
+
+
+fn _produce_message<'a, 'b>(
     data: &'a [u8],
     topic: &'b str,
     brokers: Vec<String>,
@@ -44,7 +46,7 @@ fn produce_message<'a, 'b>(
 }
 
 
-fn consume_messages(group: String, topic: String, brokers: Vec<String>) -> Result<(), KafkaError> {
+fn _consume_messages(group: String, topic: String, brokers: Vec<String>) -> Result<(), KafkaError> {
     let mut con = Consumer::from_hosts(brokers)
         .with_topic(topic)
         .with_group(group)

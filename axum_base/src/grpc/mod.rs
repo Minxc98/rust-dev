@@ -2,7 +2,7 @@
 use crate::protos::voting::voting_client::VotingClient;
 use crate::protos::voting::{VotingRequest, GetVotesRequest};
 
-pub async fn example() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn _example() -> Result<(), Box<dyn std::error::Error>> {
     // 创建客户端
     let mut client = VotingClient::connect("http://[::1]:50051").await?;
 

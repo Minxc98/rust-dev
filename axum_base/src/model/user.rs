@@ -76,7 +76,7 @@ pub(crate) struct Claims {
     exp: usize,
 }
 
-pub(crate) fn validate_token(token: &str) -> Result<Claims, AppError> {
+pub(crate) fn _validate_token(token: &str) -> Result<Claims, AppError> {
     let validation = Validation::default();
     let token_data = decode::<Claims>(
         token,
@@ -160,7 +160,7 @@ impl LoginUser {
 impl CreateUser {
     pub(crate) async fn insert_user(
         pool: &PgPool,
-        pem: &str,
+        _pem: &str,
         user: &CreateUser,
     ) -> Result<i32, AppError> {
         let mut hasher = Sha256::new();

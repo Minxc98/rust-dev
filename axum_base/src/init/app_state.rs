@@ -12,9 +12,9 @@ pub(crate) struct AppState {
 
 pub(crate) struct AppStateInner {
     pub(crate) pool: sqlx::PgPool,
-    pub(crate) redis_client: redis::Client,
+    pub(crate) _redis_client: redis::Client,
     pub(crate) pem:String,
-    pub(crate) kafka_url: String,
+    pub(crate) _kafka_url: String,
 }
 
 
@@ -52,9 +52,9 @@ impl AppState {
         Ok(Self {
             inner: Arc::new(AppStateInner {
                 pool,
-                redis_client,
+                _redis_client: redis_client,
                 pem,
-                kafka_url
+                _kafka_url: kafka_url
             }),
         })
     }

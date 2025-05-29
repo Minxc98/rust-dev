@@ -14,7 +14,6 @@ use anyhow::Result;
 use tracing::{info};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use crate::init::app_state::AppState;
 use crate::controller::user_controller::ApiDoc;
 
 #[tokio::main]

@@ -1,12 +1,7 @@
 use tracing::{level_filters::LevelFilter as Level};
 use tracing_subscriber::fmt::Layer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer as _};
-use testcontainers::{clients, RunnableImage, Container, GenericImage};
-use testcontainers::core::WaitFor;
-use std::time::Duration;
-use tokio::time::sleep;
-use sqlx::PgPool;
-use std::sync::Once;
+use testcontainers::{clients};
 use std::sync::OnceLock;
 
 pub fn init() {
@@ -18,12 +13,18 @@ pub fn init_log() {
     tracing_subscriber::registry().with(layer).init();
 }
 
-static CLI: OnceLock<clients::Cli> = OnceLock::new();
+static _CLI: OnceLock<clients::Cli> = OnceLock::new();
 
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
     use std::process::Command;
+    use std::sync::Once;
+    use std::thread::sleep;
+    use std::time::Duration;
+    use sqlx::PgPool;
+    use testcontainers::core::WaitFor;
+    use testcontainers::{Container, GenericImage, RunnableImage};
 
     static _INIT: Once = Once::new();
 
@@ -34,7 +35,7 @@ pub mod test_utils {
 
     impl TestDatabase {
         pub async fn new() -> Self {
-            let cli = CLI.get_or_init(|| clients::Cli::default());
+            let cli = _CLI.get_or_init(|| clients::Cli::default());
             let image = RunnableImage::from(
                 GenericImage::new("postgres", "latest")
                     .with_env_var("POSTGRES_USER", "postgres")
