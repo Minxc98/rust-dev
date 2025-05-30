@@ -9,6 +9,8 @@ mod kafka;
 mod grpc;
 mod protos;
 
+mod websocket;
+
 use anyhow::Result;
 
 use tracing::{info};
