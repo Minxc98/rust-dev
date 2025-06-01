@@ -29,6 +29,7 @@ kafka = "0.10"
 tonic = "0.11"
 prost = "0.12"
 futures-util = "0.3"
+clickhouse = "0.13.2"
 
 [build-dependencies]
 tonic-build = "0.11"
@@ -37,5 +38,6 @@ tonic-build = "0.11"
 testcontainers = "0.15"
 tokio = { version = "1.0", features = ["full", "test-util"] }
 tonic-build = { version = "0.10", features = ["prost"] }
+clickhouse = { version = "0.13.2", features = ["test-util"] }
 
 

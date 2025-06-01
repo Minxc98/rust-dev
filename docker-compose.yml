@@ -1,5 +1,4 @@
 #新建个postgres和redis的容器
-version: '3'
 services:
   postgres:
     image: postgres:11.2
